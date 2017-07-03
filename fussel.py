@@ -11,6 +11,16 @@ import argparse
 import sys
 import os.path
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 def is_valid_ip4(ip):
     # some rudimentary checks if ip is actually a valid IP
@@ -30,7 +40,25 @@ def parse_args():
 
     return parser.parse_args()
 
+def print_buf(counter, buf):
+    buf2 = [('%02x' % ord(i)) for i in buf]
+    print '{0}: {1:<39}  {2}'.format(('%07x' % (counter * 16)),
+        ' '.join([''.join(buf2[i:i + 2]) for i in range(0, len(buf2), 2)]),
+        ''.join([c if c in string.printable[:-5] else '.' for c in buf]))
 
+
+def hexdump(data, length=12):
+    # this is a pretty hex dumping function directly taken from
+    # http://code.activestate.com/recipes/142812-hex-dumper/
+    result = []
+    digits = 4 if isinstance(data, unicode) else 2
+
+    for i in xrange(0, len(data), length):
+        s = data[i:i + length]
+        hexa = b' '.join(["%0*X" % (digits, ord(x)) for x in s])
+        text = b''.join([x if 0x20 <= ord(x) < 0x7F else b'.' for x in s])
+        result.append(b"%04X   %-*s   %s" % (i, length * (digits + 1), hexa, text))
+    print b'\n'.join(result)
 
 def launch_radamsa(payload, radamsa_path):
     radamsa = [radamsa_path, '-n', '1', '-']
@@ -128,7 +156,7 @@ def main():
 
     fuzz_count = 0
     while True:
-        print '[+] Fuzzing: %d ' % fuzz_count
+        print bcolors.OKGREEN + '[+] Fuzzing: %d ' % fuzz_count + bcolors.ENDC
 
         try:
             fuzz_count += 1
@@ -143,19 +171,19 @@ def main():
                 fuzz_payload = pkt[1]
 
                 ''' fuzz payload? '''
-                if random.random() < float(fuzz_factor) / 100:
+                ran = random.random()
+                if ran < float(fuzz_factor) / 100:
                     fuzz_payload = launch_radamsa(fuzz_payload, radamsa_path)
-
                 #print '[!] Sending Payload: #%d \n' % fuzz_count
                 log_data('fuzzing', fuzz_payload)
+                hexdump(fuzz_payload, 16)
                 sock.send(fuzz_payload)
                 recv = sock.recv(2048)
-                print recv
             sock.close()
 
         except Exception as error:
             error_str = '[!!!] Error during fuzz iteration #%d\nError Message: %s' %(fuzz_count, str(error))
-            #print error_str
+            print error_str
 
 if __name__ == '__main__':
     main()
