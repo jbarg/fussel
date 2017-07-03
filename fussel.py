@@ -38,6 +38,7 @@ def parse_args():
     parser.add_argument('-f', '--fuzz_factor', dest='fuzz_factor', required=False, help='fuzz factor, default: 50', default=50.0)
     parser.add_argument('-r', '--radamsa_path', dest='radamsa_path', required=False, help='path to radamsa binary', default='/usr/bin/radamsa')
 
+    parser.add_argument('-v', '--verbose', dest='verbose', default=False,action='store_true',help='More verbose output of status information')
     return parser.parse_args()
 
 def print_buf(counter, buf):
@@ -162,7 +163,7 @@ def main():
             fuzz_count += 1
 
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(5)
+            sock.settimeout(2)
             ''' in case the server uses TLS '''
             sock.connect((target_ip, int(target_port)))
             #ssl_sock = ssl.wrap_socket(sock)
@@ -174,17 +175,19 @@ def main():
                 ran = random.random()
                 if ran < float(fuzz_factor) / 100:
                     fuzz_payload = launch_radamsa(fuzz_payload, radamsa_path)
-                #print '[!] Sending Payload: #%d \n' % fuzz_count
-                log_data('fuzzing', fuzz_payload)
-                hexdump(fuzz_payload, 16)
+                #log_data('fuzzing', fuzz_payload)
+                if args.verbose is True:
+                    hexdump(fuzz_payload, 16)
                 sock.send(fuzz_payload)
-                recv = sock.recv(2048)
-            sock.close()
+                #sock.recv(1024)
+                #sock.close()
 
+        except IOError, e:
+                #print str(e)
+                continue
         except Exception as error:
-            error_str = '[!!!] Error during fuzz iteration #%d\nError Message: %s' %(fuzz_count, str(error))
+            error_str = bcolors.FAIL + '[!!!] Error during fuzz iteration #%d\nError Message: %s' %(fuzz_count, str(error)) + bcolors.ENDC
             print error_str
-
 if __name__ == '__main__':
     main()
 
